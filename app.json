@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "Acolhe",
+    "slug": "acolhe-app",
+    "scheme": "acolhe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.acolhe.app"
+    },
+    "android": {
+      "package": "br.com.acolhe.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f5c5c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "SosWidget",
+              "displayName": "Acolhe SOS",
+              "description": "Peça ajuda à sua rede com um toque.",
+              "ios": {
+                "supportedFamilies": ["systemSmall", "systemMedium", "accessoryCircular"]
+              },
+              "android": null
+            }
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "SosWidget",
+              "label": "Acolhe SOS",
+              "description": "Peça ajuda à sua rede com um toque.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "widgetCategory": "home_screen|keyguard"
+            }
+          ]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
