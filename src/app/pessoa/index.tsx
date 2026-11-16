@@ -53,13 +53,6 @@ export default function PessoaHome() {
         <Button label="Ligar 192 (Samu)" variant="dangerOutline" icon="phone" size="lg" onPress={() => Linking.openURL("tel:192")} />
         <AppText size="xs" color="textMuted" center>O Acolhe não substitui o serviço de emergência.</AppText>
       </View>
-
-      {apiConfig.useMocks && (
-        <View style={{ marginTop: spacing.xl, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-          <AppText size="sm" color="textMuted" center>Demonstração: finge que o celular está sem internet. O alerta sai por SMS.</AppText>
-          <Button label={offline ? "Voltar a ter internet" : "Simular sem internet"} variant="ghost" icon={offline ? "wifi" : "wifi-off"} onPress={() => setOffline(!offline)} />
-        </View>
-      )}
     </Screen>
   );
 }
