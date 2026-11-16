@@ -46,6 +46,7 @@ export default function PessoaHome() {
           overline="Próxima consulta"
           title={nextAppointment.doctorName}
           subtitle={`${formatDayAndTime(nextAppointment.at)} • ${nextAppointment.mode === "online" ? "Online" : "Presencial"}`}
+          onPress={() => router.push("/pessoa/consultas")}
         />
       )}
 
