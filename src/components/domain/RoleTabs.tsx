@@ -1,4 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors, fontFamily } from "@/theme";
@@ -10,11 +11,14 @@ interface TabDef {
   icon: IconName;
 }
 
-/** Barra de abas usada pelos dois perfis. Só abre para quem tem o perfil certo. */
 export function RoleTabs({ role, tabs }: { role: AppRole; tabs: TabDef[] }) {
   const { user } = useAuth();
+  const { bottom } = useSafeAreaInsets();
+
   if (!user) return <Redirect href="/" />;
-  if (user.role !== role) return <Redirect href={user.role === "pessoa" ? "/pessoa" : "/cuidador"} />;
+  
+  if (user.role !== role)
+    return <Redirect href={user.role === "pessoa" ? "/pessoa" : "/cuidador"} />;
 
   return (
     <Tabs
@@ -22,7 +26,12 @@ export function RoleTabs({ role, tabs }: { role: AppRole; tabs: TabDef[] }) {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { height: 76, paddingTop: 6, paddingBottom: 10, borderTopColor: colors.border },
+        tabBarStyle: {
+          height: 76 + bottom,
+          paddingTop: 6,
+          paddingBottom: 10 + bottom,
+          borderTopColor: colors.border,
+        },
         tabBarLabelStyle: { fontFamily: fontFamily.bold, fontSize: 13 },
       }}
     >
@@ -32,7 +41,13 @@ export function RoleTabs({ role, tabs }: { role: AppRole; tabs: TabDef[] }) {
           name={t.name}
           options={{
             title: t.title,
-            tabBarIcon: ({ focused }) => <Icon name={t.icon} size={24} color={focused ? "primary" : "textMuted"} />,
+            tabBarIcon: ({ focused }) => (
+              <Icon
+                name={t.icon}
+                size={24}
+                color={focused ? "primary" : "textMuted"}
+              />
+            ),
           }}
         />
       ))}
