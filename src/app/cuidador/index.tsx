@@ -5,7 +5,6 @@ import { InfoRow, QueryState, Timeline } from "@/components/domain";
 import { useCurrentUser } from "@/contexts/AuthContext";
 import { useEmergency } from "@/contexts/EmergencyContext";
 import { usePatient, useTimeline, useTodayDoses } from "@/hooks/useCare";
-import { useLogoutPrompt } from "@/hooks/useLogoutPrompt";
 import { apiConfig } from "@/services";
 import { colors, spacing } from "@/theme";
 import { formatTime, formatTimeAgo } from "@/utils/date";
@@ -13,7 +12,6 @@ import { mapsUrl } from "@/utils/maps";
 
 export default function CuidadorHome() {
   const user = useCurrentUser();
-  const logoutPrompt = useLogoutPrompt();
   const { alert, resolveAlert, clear, simulateIncomingAlert } = useEmergency();
   const patientQuery = usePatient(user.patientId);
   const { data: doses } = useTodayDoses(user.patientId);
@@ -29,7 +27,7 @@ export default function CuidadorHome() {
       <QueryState query={patientQuery}>
         {(patient) => (
           <>
-            <ScreenHeader overline={`Olá, ${user.displayName}`} title={patient.name} avatar={user.initials} onAvatarPress={logoutPrompt} />
+            <ScreenHeader overline={`Olá, ${user.displayName}`} title={patient.name} avatar={user.initials} onAvatarPress={() => router.push("/meus-dados")} />
 
             {iAmGoing ? (
               <View style={{ alignItems: "center", paddingTop: spacing.lg }}>

@@ -37,7 +37,7 @@ function resolvePatient(input: RegisterInput): Patient | string {
 /** Converte o usuário da API para o formato do app. O app é só da pessoa cuidada e da rede de cuidado. */
 export function toAppUser(user: ApiUser): AppUser {
   const base = {
-    id: user.id, name: user.name, initials: user.initials, phone: user.phone,
+    id: user.id, name: user.name, initials: user.initials, email: user.email, phone: user.phone,
     displayName: user.displayName ?? user.name.split(" ")[0],
   };
   if (user.accountRole === "pessoa" && user.patientIds[0]) {
@@ -53,14 +53,18 @@ export function toAppUser(user: ApiUser): AppUser {
 
 const toSession = (session: ApiSession): Session => ({ token: session.token, user: toAppUser(session.user) });
 
+/** Modo mock: tira login e senha do usuário guardado e expõe o e-mail, como a API faz. */
+function toMockUser({ login, password: _password, ...user }: (typeof users)[number]): AppUser {
+  void _password;
+  return { ...user, email: login };
+}
+
 export const authService = {
   async login(login: string, password: string): Promise<Session> {
     if (!apiConfig.useMocks) return toSession(await http.post<ApiSession>("/auth/login", { login, password }));
     const found = users.find((u) => u.login === login.trim().toLowerCase());
     if (!found || found.password !== password) return mockError("E-mail/celular ou senha incorretos.");
-    const { login: _l, password: _p, ...user } = found;
-    void _l; void _p;
-    return mockResponse({ token: `mock-token-${user.id}`, user });
+    return mockResponse({ token: `mock-token-${found.id}`, user: toMockUser(found) });
   },
 
   /** Cria a conta (pessoa cuidada ou cuidador) e já devolve a sessão. */
@@ -73,7 +77,7 @@ export const authService = {
     const patient = resolvePatient(input);
     if (typeof patient === "string") return mockError(patient);
 
-    const base = { id: createId("u"), name: input.name.trim(), initials: getInitials(input.name), login: email, password: input.password, phone: input.phone };
+    const base = { id: createId("u"), name: input.name.trim(), initials: getInitials(input.name), email, phone: input.phone };
 
     let user: AppUser;
     if (input.role === "pessoa") {
@@ -103,9 +107,7 @@ export const authService = {
     if (!apiConfig.useMocks) return { token, user: toAppUser(await http.get<ApiUser>("/auth/me")) };
     const found = users.find((u) => token === `mock-token-${u.id}`);
     if (!found) return mockError("Sessão expirada.");
-    const { login: _l, password: _p, ...user } = found;
-    void _l; void _p;
-    return mockResponse({ token, user }, 100);
+    return mockResponse({ token, user: toMockUser(found) }, 100);
   },
 
   async logout(): Promise<void> {

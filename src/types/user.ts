@@ -12,6 +12,7 @@ export interface AppUser {
   patientId: string;
   /** Id do cuidador na rede (apenas para role "cuidador"). */
   caregiverId?: string;
+  email?: string;
   phone?: string;
   /** Preferências de acessibilidade escolhidas no cadastro (pessoa cuidada). */
   accessibility?: AccessibilityPrefs;
