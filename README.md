@@ -97,11 +97,19 @@ Todas as cores ficam em **`src/theme/colors.ts`**, com os mesmos valores do port
 
 ## Integração com o backend
 
-1. No `.env`: `EXPO_PUBLIC_USE_MOCKS=false` e `EXPO_PUBLIC_API_URL=https://sua-api/api`.
-2. Implemente as rotas usadas em `src/services/*` (cada função mostra o caminho da API).
-3. **Alertas em tempo real:** em `alertService.subscribe`, troque o emissor em memória por WebSocket e
-   **notificações push** (`expo-notifications`), para o cuidador ser avisado mesmo com o app fechado.
-4. **Sessão salva:** guarde o token com `expo-secure-store` no `AuthContext`. Isso é necessário para o widget funcionar sem pedir login.
-5. **Localização:** envie a posição do celular junto com o alerta (`expo-location`).
+O app usa a **mesma API e o mesmo banco do portal web**. A API fica no repositório `acolhe-web` (pasta `server/`,
+Hono + Prisma + Postgres) e é publicada junto com o portal no Vercel. O app nunca acessa o banco diretamente.
 
-As telas não precisam mudar.
+1. Suba a API: no `acolhe-web`, `npm run dev` (API em `http://localhost:3334/api`) ou use a URL do Vercel.
+2. No `.env` do app: `EXPO_PUBLIC_USE_MOCKS=false` e `EXPO_PUBLIC_API_URL` apontando para a API
+   (no celular, use o IP do computador na rede, não `localhost`; veja `.env.example`).
+3. Entre com as contas do seed do portal (senha `12345678`): `maria@exemplo.com` (pessoa cuidada) ou `ana@exemplo.com` (cuidadora).
+
+Como funciona:
+
+- **Sessão salva:** o token fica no `expo-secure-store` (`localStorage` no navegador) e é conferido em `/auth/me` ao abrir o app.
+- **Alertas:** sem push ainda, o app consulta o alerta ativo a cada 4 s (15 s sem alerta), pausando em segundo plano.
+- **Contas:** o app aceita a pessoa cuidada e cuidadores; contas de médico usam o portal.
+
+Próximos passos: **notificações push** (`expo-notifications`) para avisar o cuidador com o app fechado,
+**localização** junto com o alerta (`expo-location`) e sessão compartilhada com o widget de SOS.

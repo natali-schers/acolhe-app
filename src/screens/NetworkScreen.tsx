@@ -2,7 +2,7 @@ import { Linking, Pressable, StyleSheet, View } from "react-native";
 import { AppText, Avatar, Icon, InfoBanner, Screen, ScreenHeader, StatusTag } from "@/components/ui";
 import { channelsText, ChannelTag, QueryState } from "@/components/domain";
 import { useCurrentUser } from "@/contexts/AuthContext";
-import { useCaregivers } from "@/hooks/useCare";
+import { useCaregivers, usePatient } from "@/hooks/useCare";
 import { colors, spacing } from "@/theme";
 import type { Caregiver } from "@/types";
 
@@ -45,11 +45,16 @@ function Group({ title, description, list }: { title: string; description: strin
 export function NetworkScreen() {
   const user = useCurrentUser();
   const query = useCaregivers(user.patientId);
+  const patient = usePatient(user.patientId);
   const isPessoa = user.role === "pessoa";
+  const patientName = patient.data?.name;
 
   return (
     <Screen>
-      <ScreenHeader overline={isPessoa ? "Quem está com você" : "Quem cuida da Dona Maria"} title="Rede de cuidado" />
+      <ScreenHeader
+        overline={isPessoa ? "Quem está com você" : patientName ? `Quem cuida de ${patientName}` : "Quem cuida"}
+        title="Rede de cuidado"
+      />
       <QueryState query={query}>
         {(list) => {
           const active = list.filter((c) => c.status === "ativo");

@@ -37,7 +37,11 @@
               "displayName": "Acolhe SOS",
               "description": "Peça ajuda à sua rede com um toque.",
               "ios": {
-                "supportedFamilies": ["systemSmall", "systemMedium", "accessoryCircular"]
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryCircular"
+                ]
               },
               "android": null
             }
@@ -61,7 +65,8 @@
             }
           ]
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

@@ -61,6 +61,8 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
             autoComplete="password"
+            autoCapitalize="none"
+            autoCorrect={false}
             accessibilityLabel="Senha"
           />
           <Pressable style={styles.eye} onPress={() => setShowPassword((v) => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}>

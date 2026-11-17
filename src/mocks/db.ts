@@ -50,6 +50,10 @@ export const timeline: TimelineEntry[] = [
 
 export const appointments: Appointment[] = [
   { id: "ap1", patientId: "p-maria", doctorId: "u-paulo", doctorName: "Dr. Paulo Mendes", specialty: "Clínica geral", at: daysFromToday(1, 10, 30), durationMinutes: 30, mode: "online" },
+  {
+    id: "ap2", patientId: "p-maria", doctorId: "u-paulo", doctorName: "Dr. Paulo Mendes", specialty: "Retorno", at: daysFromToday(15, 14, 0),
+    durationMinutes: 30, mode: "presencial", location: "UBS Vila Mariana, R. Dr. Diogo de Faria, 600 - São Paulo, SP",
+  },
 ];
 
 export const prescriptions: Prescription[] = [

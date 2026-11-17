@@ -118,8 +118,8 @@ export default function CadastroScreen() {
   };
 
   const validData = () => {
-    if (!name.trim() || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || password.length < 6) {
-      setError("Preencha nome, e-mail válido, celular com DDD e uma senha de pelo menos 6 caracteres.");
+    if (!name.trim() || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || password.length < 8) {
+      setError("Preencha nome, e-mail válido, celular com DDD e uma senha de pelo menos 8 caracteres.");
       return false;
     }
     return true;
@@ -140,7 +140,10 @@ export default function CadastroScreen() {
 
   const validLink = () => {
     if (found) return true;
-    if (isPessoa && own) return pName.trim().length > 0 || name.trim().length > 0;
+    if (isPessoa && own) {
+      if (pYear.length !== 4 || !pCity.trim()) { setError("Informe seu ano de nascimento (4 dígitos) e sua cidade."); return false; }
+      return true;
+    }
     if (!isPessoa && createNew) {
       if (!pName.trim() || pYear.length !== 4 || !pCity.trim()) { setError("Informe nome, ano de nascimento (4 dígitos) e cidade."); return false; }
       return true;
@@ -167,7 +170,7 @@ export default function CadastroScreen() {
       if (isPessoa) {
         input = {
           role: "pessoa", name, email, phone, password, accessibility: { textSize, voiceReminders: voice },
-          ...(found ? { patientCode: code.trim() } : { newPatient: { birthYear: Number(pYear) || 1950, city: pCity.trim() || "São Paulo" } }),
+          ...(found ? { patientCode: code.trim() } : { newPatient: { birthYear: Number(pYear), city: pCity.trim() } }),
         };
       } else {
         input = {
@@ -262,7 +265,7 @@ export default function CadastroScreen() {
                 <Field label="Nome completo" value={name} onChangeText={setName} autoComplete="name" />
                 <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
                 <Field label="Celular com DDD" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder="(11) 90000-0000" />
-                <Field label="Senha" hint="Pelo menos 6 caracteres." value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" />
+                <Field label="Senha" hint="Pelo menos 8 caracteres." value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" autoCapitalize="none" autoCorrect={false} />
               </>
             )}
 

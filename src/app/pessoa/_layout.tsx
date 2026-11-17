@@ -8,6 +8,7 @@ export default function PessoaLayout() {
         { name: "index", title: "Início", icon: "home" },
         { name: "remedios", title: "Remédios", icon: "package" },
         { name: "rotina", title: "Rotina", icon: "file-text" },
+        { name: "consultas", title: "Cuidados", icon: "calendar" },
         { name: "rede", title: "Rede", icon: "users" },
       ]}
     />

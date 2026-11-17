@@ -9,6 +9,7 @@ import { useLogoutPrompt } from "@/hooks/useLogoutPrompt";
 import { apiConfig } from "@/services";
 import { colors, spacing } from "@/theme";
 import { formatTime, formatTimeAgo } from "@/utils/date";
+import { mapsUrl } from "@/utils/maps";
 
 export default function CuidadorHome() {
   const user = useCurrentUser();
@@ -43,7 +44,7 @@ export default function CuidadorHome() {
                   </View>
                 </Card>
                 <View style={{ alignSelf: "stretch", gap: spacing.sm }}>
-                  <Button label="Abrir no mapa" icon="navigation" variant="secondary" size="lg" onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(`${patient.address}, ${patient.city}`)}`)} />
+                  <Button label="Abrir no mapa" icon="navigation" variant="secondary" size="lg" onPress={() => Linking.openURL(mapsUrl(`${patient.address}, ${patient.city}`))} />
                   <Button label="Cheguei, está tudo bem" icon="check" size="lg" onPress={resolveAlert} />
                   <Button label="Preciso de socorro (192)" icon="alert-triangle" variant="dangerOutline" size="lg" onPress={() => Linking.openURL("tel:192")} />
                 </View>

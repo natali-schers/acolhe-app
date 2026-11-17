@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { authService, setAuthToken } from "@/services";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { router } from "expo-router";
+import { ApiError, authService, setAuthToken, setUnauthorizedHandler, tokenStorage } from "@/services";
 import type { AppRole, AppUser, RegisterInput, Session } from "@/types";
 
 interface AuthContextValue {
@@ -13,15 +14,54 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * Sessão do usuário.
- * TODO backend: guardar o token com expo-secure-store para manter a pessoa logada
- * (essencial para o widget de SOS funcionar sem pedir login).
+ * Sessão do usuário. O token fica salvo no aparelho (SecureStore) para a pessoa continuar logada
+ * ao reabrir o app — essencial para o widget de SOS funcionar sem pedir login.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [restoring, setRestoring] = useState(true);
 
-  const apply = useCallback((next: Session) => {
+  const clearSession = useCallback(() => {
+    setAuthToken(null);
+    setSession(null);
+    tokenStorage.remove().catch(() => undefined);
+  }, []);
+
+  // Ao abrir o app: recupera a sessão salva. Token inválido ou expirado é descartado.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await tokenStorage.get();
+        if (!token) return;
+        setAuthToken(token);
+        const restored = await authService.me(token);
+        if (!cancelled) setSession(restored);
+      } catch (e) {
+        // Sem internet: não apaga o token, a pessoa tenta de novo ao reabrir. Só descarta se o servidor recusou.
+        setAuthToken(null);
+        if (e instanceof ApiError && e.status !== 0) tokenStorage.remove().catch(() => undefined);
+      } finally {
+        if (!cancelled) setRestoring(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sessão expirou no meio do uso: volta para a tela inicial (mesmo caminho do "Sair").
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearSession();
+      router.replace("/");
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [clearSession]);
+
+  const apply = useCallback(async (next: Session) => {
     setAuthToken(next.token);
+    await tokenStorage.set(next.token).catch(() => undefined);
     setSession(next);
     return next.user;
   }, []);
@@ -30,11 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginAsDemo = useCallback(async (role: AppRole) => apply(await authService.loginAsDemo(role)), [apply]);
   const register = useCallback(async (input: RegisterInput) => apply(await authService.register(input)), [apply]);
   const logout = useCallback(() => {
-    setAuthToken(null);
-    setSession(null);
-  }, []);
+    authService.logout();
+    clearSession();
+  }, [clearSession]);
 
   const value = useMemo(() => ({ user: session?.user ?? null, login, loginAsDemo, register, logout }), [session, login, loginAsDemo, register, logout]);
+
+  // Enquanto confere a sessão salva, não mostra nada (como no carregamento das fontes): evita piscar a tela de login.
+  if (restoring) return null;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
