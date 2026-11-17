@@ -55,3 +55,25 @@ export interface Session {
   token: string;
   user: AppUser;
 }
+
+/**
+ * Usuário como a API devolve (formato compartilhado com o portal web, em acolhe-web/src/types/user.ts).
+ * O authService converte para AppUser.
+ */
+export interface ApiUser {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  phone?: string;
+  patientIds: string[];
+  accountRole?: "pessoa" | "cuidador" | "medico";
+  displayName?: string;
+  caregiverLinks?: { patientId: string; caregiverId: string }[];
+  accessibility?: AccessibilityPrefs;
+}
+
+export interface ApiSession {
+  token: string;
+  user: ApiUser;
+}

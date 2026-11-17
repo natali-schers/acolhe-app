@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { router } from "expo-router";
 import { useAuth } from "./AuthContext";
-import { alertService } from "@/services";
+import { alertService, apiConfig } from "@/services";
 import type { EmergencyAlert } from "@/types";
 
 interface EmergencyContextValue {
@@ -27,19 +27,35 @@ export function EmergencyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [alert, setAlert] = useState<EmergencyAlert | null>(null);
   const [offline, setOffline] = useState(false);
+  /** Alertas que já abriram a tela de "recebido": o mesmo alerta chega várias vezes enquanto muda. */
+  const announced = useRef(new Set<string>());
 
-  // Ouve os alertas da pessoa cuidada em "tempo real".
+  // Ouve os alertas da pessoa cuidada em "tempo real" (com a API, por consulta periódica).
   useEffect(() => {
     if (!user) return;
     const unsubscribe = alertService.subscribe(user.patientId, (incoming) => {
+      // Cancelado (por quem pediu ajuda): some da tela de todos.
+      if (incoming.status === "cancelado") {
+        setAlert((current) => (current?.id === incoming.id ? null : current));
+        return;
+      }
+      // Resolvido: só atualiza quem ainda está vendo este alerta (não reabre uma tela já fechada).
+      if (incoming.status === "resolvido") {
+        setAlert((current) => (current?.id === incoming.id ? incoming : current));
+        return;
+      }
       setAlert(incoming);
       const isNewForCaregiver =
         user.role === "cuidador" &&
         incoming.status === "enviado" &&
+        !announced.current.has(incoming.id) &&
         incoming.recipients.some((r) => r.caregiverId === user.caregiverId && r.status === "enviado");
-      if (isNewForCaregiver) router.push("/emergencia/recebido");
+      if (isNewForCaregiver) {
+        announced.current.add(incoming.id);
+        router.push("/emergencia/recebido");
+      }
     });
-    alertService.getActive(user.patientId).then((active) => active && setAlert(active));
+    if (apiConfig.useMocks) alertService.getActive(user.patientId).then((active) => active && setAlert(active));
     return unsubscribe;
   }, [user]);
 

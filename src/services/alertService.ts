@@ -7,6 +7,7 @@
  *
  * No modo simulado, um "emissor" em memória faz o papel do servidor e simula a rede respondendo.
  */
+import { AppState } from "react-native";
 import { apiConfig } from "./config";
 import { http } from "./http";
 import { alerts, caregivers, patients } from "@/mocks/db";
@@ -73,17 +74,74 @@ function pickChannel(c: Caregiver, offline: boolean): { channel: AlertChannel; f
     : { channel: c.channels[0], failedChannels: [] };
 }
 
+/**
+ * Com a API: confere o alerta ativo de tempos em tempos (mais rápido quando há um em andamento)
+ * e pausa com o app em segundo plano. Quando o alerta some da lista de ativos, busca o estado final
+ * (cancelado/resolvido) para a tela não ficar presa em "enviado".
+ * Próximo passo: notificações push (expo-notifications) para avisar com o app fechado.
+ */
+function pollActiveAlert(patientId: string, listener: Listener): () => void {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last: EmergencyAlert | null = null;
+  let lastJson = "";
+
+  const deliver = (alert: EmergencyAlert) => {
+    const json = JSON.stringify(alert);
+    if (json === lastJson) return;
+    lastJson = json;
+    listener(alert);
+  };
+
+  let running = false;
+  const tick = async () => {
+    if (running || stopped) return;
+    running = true;
+    try {
+      const active = await alertService.getActive(patientId);
+      if (active) deliver(active);
+      else if (last) deliver(await http.get<EmergencyAlert>(`/alerts/${last.id}`));
+      last = active;
+    } catch {
+      // Sem conexão: tenta de novo no próximo ciclo.
+    }
+    running = false;
+    schedule();
+  };
+
+  const schedule = () => {
+    if (stopped || AppState.currentState !== "active") return;
+    clearTimeout(timer);
+    timer = setTimeout(tick, last ? apiConfig.alertPollMs.active : apiConfig.alertPollMs.idle);
+  };
+
+  const appState = AppState.addEventListener("change", (state) => {
+    clearTimeout(timer);
+    if (state === "active" && !stopped) tick();
+  });
+
+  tick();
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    appState.remove();
+  };
+}
+
 export const alertService = {
   /** Ouve mudanças nos alertas da pessoa cuidada. Devolve a função para parar de ouvir. */
   subscribe(patientId: string, listener: Listener): () => void {
-    // Backend real: abrir WebSocket aqui, ex.: new WebSocket(`${wsUrl}/patients/${patientId}/alerts`)
+    if (!apiConfig.useMocks) return pollActiveAlert(patientId, listener);
     if (!listeners.has(patientId)) listeners.set(patientId, new Set());
     listeners.get(patientId)!.add(listener);
     return () => listeners.get(patientId)?.delete(listener);
   },
 
   async listByPatient(patientId: string): Promise<EmergencyAlert[]> {
-    if (!apiConfig.useMocks) return http.get<EmergencyAlert[]>(`/patients/${patientId}/alerts`);
+    if (!apiConfig.useMocks) {
+      // Pedidos cancelados na contagem não aparecem no histórico (igual ao modo mock).
+      return (await http.get<EmergencyAlert[]>(`/patients/${patientId}/alerts`)).filter((a) => a.status !== "cancelado");
+    }
     return mockResponse(
       alerts.filter((a) => a.patientId === patientId && a.status !== "cancelado").sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     );
@@ -99,7 +157,8 @@ export const alertService = {
    * @param simulateResponses no modo mock, simula os cuidadores respondendo (usado na demo da pessoa cuidada).
    */
   async trigger(patientId: string, triggeredBy: string, simulateResponses = true, offline = false): Promise<EmergencyAlert> {
-    if (!apiConfig.useMocks) return http.post<EmergencyAlert>(`/patients/${patientId}/alerts`, { triggeredBy });
+    // Com a API, quem pediu ajuda vem do login (triggeredBy só vale no modo mock).
+    if (!apiConfig.useMocks) return http.post<EmergencyAlert>(`/patients/${patientId}/alerts`, { offline });
     const now = new Date().toISOString();
     const alert: EmergencyAlert = {
       id: createId("a"),
@@ -132,7 +191,7 @@ export const alertService = {
 
   /** Cuidador responde: assume o atendimento ou diz que não pode. */
   async respond(alertId: string, caregiverId: string, answer: "assumiu" | "recusou"): Promise<EmergencyAlert> {
-    if (!apiConfig.useMocks) return http.post<EmergencyAlert>(`/alerts/${alertId}/respond`, { caregiverId, answer });
+    if (!apiConfig.useMocks) return http.post<EmergencyAlert>(`/alerts/${alertId}/respond`, { caregiverId, status: answer });
     const alert = findAlert(alertId);
     if (!alert) return mockError("Alerta não encontrado.");
     setRecipient(alert, caregiverId, answer);

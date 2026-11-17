@@ -1,11 +1,11 @@
 /** Login, pessoa cuidada, rede, remédios, rotina, consultas e receitas. */
 import { apiConfig } from "./config";
-import { http } from "./http";
+import { ApiError, http } from "./http";
 import { appointments, caregivers, doses, medications, patients, prescriptions, timeline, users } from "@/mocks/db";
 import { createId, mockError, mockResponse } from "@/mocks/helpers";
 import type {
-  Appointment, AppUser, Caregiver, CreateNoteInput, Medication, MedicationDose, Patient, Prescription, RegisterInput,
-  Session, TimelineEntry,
+  ApiSession, ApiUser, Appointment, AppUser, Caregiver, CreateNoteInput, Medication, MedicationDose, Patient, Prescription,
+  RegisterInput, Session, TimelineEntry,
 } from "@/types";
 import { isSameDay } from "@/utils/date";
 import { getInitials } from "@/utils/text";
@@ -34,9 +34,28 @@ function resolvePatient(input: RegisterInput): Patient | string {
   return created;
 }
 
+/** Converte o usuário da API para o formato do app. O app é só da pessoa cuidada e da rede de cuidado. */
+export function toAppUser(user: ApiUser): AppUser {
+  const base = {
+    id: user.id, name: user.name, initials: user.initials, phone: user.phone,
+    displayName: user.displayName ?? user.name.split(" ")[0],
+  };
+  if (user.accountRole === "pessoa" && user.patientIds[0]) {
+    return { ...base, role: "pessoa", patientId: user.patientIds[0], accessibility: user.accessibility };
+  }
+  const link = user.caregiverLinks?.[0];
+  if (user.accountRole === "cuidador" && link) {
+    return { ...base, role: "cuidador", patientId: link.patientId, caregiverId: link.caregiverId };
+  }
+  if (user.accountRole === "medico") throw new ApiError(403, "Esta conta é de médico. Use o portal web do Acolhe.");
+  throw new ApiError(403, "Esta conta ainda não está ligada a uma pessoa cuidada.");
+}
+
+const toSession = (session: ApiSession): Session => ({ token: session.token, user: toAppUser(session.user) });
+
 export const authService = {
   async login(login: string, password: string): Promise<Session> {
-    if (!apiConfig.useMocks) return http.post<Session>("/auth/login", { login, password });
+    if (!apiConfig.useMocks) return toSession(await http.post<ApiSession>("/auth/login", { login, password }));
     const found = users.find((u) => u.login === login.trim().toLowerCase());
     if (!found || found.password !== password) return mockError("E-mail/celular ou senha incorretos.");
     const { login: _l, password: _p, ...user } = found;
@@ -46,7 +65,7 @@ export const authService = {
 
   /** Cria a conta (pessoa cuidada ou cuidador) e já devolve a sessão. */
   async register(input: RegisterInput): Promise<Session> {
-    if (!apiConfig.useMocks) return http.post<Session>("/auth/register", input);
+    if (!apiConfig.useMocks) return toSession(await http.post<ApiSession>("/auth/register", input));
 
     const email = input.email.trim().toLowerCase();
     if (users.some((u) => u.login === email)) return mockError("Já existe uma conta com este e-mail.");
@@ -77,6 +96,20 @@ export const authService = {
     }
     users.push({ ...user, login: email, password: input.password });
     return mockResponse({ token: `mock-token-${user.id}`, user }, 900);
+  },
+
+  /** Recupera o usuário a partir do token salvo no aparelho. */
+  async me(token: string): Promise<Session> {
+    if (!apiConfig.useMocks) return { token, user: toAppUser(await http.get<ApiUser>("/auth/me")) };
+    const found = users.find((u) => token === `mock-token-${u.id}`);
+    if (!found) return mockError("Sessão expirada.");
+    const { login: _l, password: _p, ...user } = found;
+    void _l; void _p;
+    return mockResponse({ token, user }, 100);
+  },
+
+  async logout(): Promise<void> {
+    if (!apiConfig.useMocks) await http.post<void>("/auth/logout").catch(() => undefined);
   },
 
   /** Usado pelo modo demonstração para entrar direto num perfil. */
@@ -113,7 +146,7 @@ export interface DoseWithMedication extends MedicationDose {
 
 export const medicationService = {
   async listTodayDoses(patientId: string): Promise<DoseWithMedication[]> {
-    if (!apiConfig.useMocks) return http.get<DoseWithMedication[]>(`/patients/${patientId}/doses?date=today`);
+    if (!apiConfig.useMocks) return http.get<DoseWithMedication[]>(`/patients/${patientId}/doses?include=medication`);
     const today = new Date();
     const list = doses
       .filter((d) => d.patientId === patientId && isSameDay(new Date(d.scheduledAt), today))
@@ -123,6 +156,7 @@ export const medicationService = {
   },
 
   async confirmDose(doseId: string, confirmedBy: string): Promise<MedicationDose> {
+    // Com a API, quem confirmou vem do login (confirmedBy só vale no modo mock).
     if (!apiConfig.useMocks) return http.post<MedicationDose>(`/doses/${doseId}/confirm`);
     const dose = doses.find((d) => d.id === doseId);
     if (!dose) return mockError("Dose não encontrada.");
