@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { AppText, Button, Eyebrow, Icon, Screen } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,7 +31,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    // Android é edge-to-edge (a janela não encolhe com o teclado): "padding" nas duas plataformas.
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Screen edges={["top", "bottom"]}>
         <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Voltar">
           <Icon name="arrow-left" color="primary" />

@@ -6,18 +6,39 @@ import { useAuth } from "@/contexts/AuthContext";
 import { patientService } from "@/services";
 import { colors, fontFamily, fontSize, radius, spacing } from "@/theme";
 import type { AccessibilityPrefs, Patient, RegisterInput } from "@/types";
+import { formatPhone, isValidPhone } from "@/utils/phone";
 
 const WEB_PORTAL_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "http://localhost:5173";
 
 type Profile = "pessoa" | "cuidador" | "medico";
 type Support = { name: string; phone: string };
 
-function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
+/** Campo com rótulo. `password` esconde o texto e mostra o botão de ver/esconder (como no login). */
+function Field({ label, hint, password = false, ...props }: TextInputProps & { label: string; hint?: string; password?: boolean }) {
+  const [visible, setVisible] = useState(false);
   return (
     <View style={{ marginTop: spacing.lg }}>
       <AppText bold style={{ marginBottom: 6 }}>{label}</AppText>
       {hint && <AppText size="sm" color="textMuted" style={{ marginBottom: 6 }}>{hint}</AppText>}
-      <TextInput style={styles.input} accessibilityLabel={label} placeholderTextColor={colors.textMuted} {...props} />
+      <View>
+        <TextInput
+          style={[styles.input, password && { paddingRight: 56 }]}
+          accessibilityLabel={label}
+          placeholderTextColor={colors.textMuted}
+          {...(password ? { secureTextEntry: !visible, autoCapitalize: "none" as const, autoCorrect: false } : {})}
+          {...props}
+        />
+        {password && (
+          <Pressable
+            style={styles.eye}
+            onPress={() => setVisible((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={visible ? "Ocultar senha" : "Mostrar senha"}
+          >
+            <Icon name={visible ? "eye-off" : "eye"} color="textMuted" />
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -118,7 +139,7 @@ export default function CadastroScreen() {
   };
 
   const validData = () => {
-    if (!name.trim() || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || password.length < 8) {
+    if (!name.trim() || !email.includes("@") || !isValidPhone(phone) || password.length < 8) {
       setError("Preencha nome, e-mail válido, celular com DDD e uma senha de pelo menos 8 caracteres.");
       return false;
     }
@@ -164,6 +185,11 @@ export default function CadastroScreen() {
   const submit = async (skipSupports = false) => {
     setError(null);
     if (isPessoa && !consent) { setError("Para continuar, aceite os termos."); return; }
+    if (!isPessoa && !skipSupports) {
+      // Contato começado pela metade (só nome ou só celular, ou celular incompleto) não pode sumir sem aviso.
+      const incomplete = supports.findIndex((s) => (s.name.trim() || s.phone) && (!s.name.trim() || !isValidPhone(s.phone)));
+      if (incomplete >= 0) { setError(`Contato ${incomplete + 1}: informe o nome e o celular com DDD, ou deixe os dois em branco.`); return; }
+    }
     setBusy(true);
     try {
       let input: RegisterInput;
@@ -175,7 +201,7 @@ export default function CadastroScreen() {
       } else {
         input = {
           role: "cuidador", name, email, phone, password,
-          supportContacts: skipSupports ? [] : supports.filter((s) => s.name.trim() && s.phone.trim()),
+          supportContacts: skipSupports ? [] : supports.filter((s) => s.name.trim() && isValidPhone(s.phone)),
           ...(found ? { patientCode: code.trim() } : { newPatient: { name: pName.trim(), birthYear: Number(pYear), city: pCity.trim() } }),
         };
       }
@@ -220,7 +246,8 @@ export default function CadastroScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    // Android é edge-to-edge (a janela não encolhe com o teclado): "padding" nas duas plataformas.
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Screen edges={["top", "bottom"]}>
         <Pressable onPress={back} style={styles.back} accessibilityRole="button" accessibilityLabel="Voltar">
           <Icon name="arrow-left" color="primary" />
@@ -264,8 +291,8 @@ export default function CadastroScreen() {
               <>
                 <Field label="Nome completo" value={name} onChangeText={setName} autoComplete="name" />
                 <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-                <Field label="Celular com DDD" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder="(11) 90000-0000" />
-                <Field label="Senha" hint="Pelo menos 8 caracteres." value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" autoCapitalize="none" autoCorrect={false} />
+                <Field label="Celular com DDD" value={phone} onChangeText={(v) => setPhone(formatPhone(v))} keyboardType="phone-pad" autoComplete="tel" placeholder="(11) 90000-0000" />
+                <Field label="Senha" hint="Pelo menos 8 caracteres." value={password} onChangeText={setPassword} password autoComplete="new-password" />
               </>
             )}
 
@@ -313,7 +340,7 @@ export default function CadastroScreen() {
                   <Card key={i} style={{ marginTop: spacing.md }}>
                     <AppText bold>Contato {i + 1}</AppText>
                     <Field label="Nome" value={s.name} onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, name: v } : x)))} />
-                    <Field label="Celular" value={s.phone} keyboardType="phone-pad" onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, phone: v } : x)))} />
+                    <Field label="Celular com DDD" value={s.phone} keyboardType="phone-pad" placeholder="(11) 90000-0000" onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, phone: formatPhone(v) } : x)))} />
                   </Card>
                 ))}
                 {supports.length < 3 && (
@@ -382,6 +409,7 @@ export default function CadastroScreen() {
 
 const styles = StyleSheet.create({
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, marginBottom: 12, alignSelf: "flex-start", minHeight: 48 },
+  eye: { position: "absolute", right: 4, top: 4, width: 46, height: 46, alignItems: "center", justifyContent: "center" },
   input: {
     minHeight: 54, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: 16,
     backgroundColor: colors.surface, fontFamily: fontFamily.regular, fontSize: fontSize.lg, color: colors.text,
