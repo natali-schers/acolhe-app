@@ -1,5 +1,12 @@
+import { createContext, useContext } from "react";
 import { Text, type TextProps } from "react-native";
 import { colors, fontFamily, fontSize, type ColorToken } from "@/theme";
+
+/**
+ * Multiplicador do tamanho do texto escolhido em "Meus dados" (1 = normal).
+ * O AuthProvider fornece o valor; fora dele (widgets, carregamento) fica no tamanho padrão.
+ */
+export const TextScaleContext = createContext(1);
 
 export interface AppTextProps extends TextProps {
   size?: keyof typeof fontSize;
@@ -10,13 +17,15 @@ export interface AppTextProps extends TextProps {
 
 /** Texto padrão do app, sempre com a fonte Atkinson Hyperlegible (feita para baixa visão). */
 export function AppText({ size = "md", bold = false, color = "text", center, style, ...rest }: AppTextProps) {
+  const scale = useContext(TextScaleContext);
+  const px = Math.round(fontSize[size] * scale);
   return (
     <Text
       style={[
         {
           fontFamily: bold ? fontFamily.bold : fontFamily.regular,
-          fontSize: fontSize[size],
-          lineHeight: Math.round(fontSize[size] * 1.3),
+          fontSize: px,
+          lineHeight: Math.round(px * 1.3),
           color: colors[color],
           textAlign: center ? "center" : undefined,
         },

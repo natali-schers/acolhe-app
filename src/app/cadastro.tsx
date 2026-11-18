@@ -1,47 +1,19 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { AppText, Button, Card, Eyebrow, Icon, IconBadge, InfoBanner, Screen, type IconName } from "@/components/ui";
+import { AppText, Button, Card, CheckRow, Eyebrow, Field, Icon, IconBadge, InfoBanner, OptionGroup, Screen, type IconName } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { TextSizeLabel } from "@/components/domain";
 import { patientService } from "@/services";
-import { colors, fontFamily, fontSize, radius, spacing } from "@/theme";
+import { colors, radius, spacing } from "@/theme";
 import type { AccessibilityPrefs, Patient, RegisterInput } from "@/types";
 import { formatPhone, isValidPhone } from "@/utils/phone";
+import { defaultPrefs, textSizeOptions } from "@/utils/preferences";
 
 const WEB_PORTAL_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "http://localhost:5173";
 
 type Profile = "pessoa" | "cuidador" | "medico";
 type Support = { name: string; phone: string };
-
-/** Campo com rótulo. `password` esconde o texto e mostra o botão de ver/esconder (como no login). */
-function Field({ label, hint, password = false, ...props }: TextInputProps & { label: string; hint?: string; password?: boolean }) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <View style={{ marginTop: spacing.lg }}>
-      <AppText bold style={{ marginBottom: 6 }}>{label}</AppText>
-      {hint && <AppText size="sm" color="textMuted" style={{ marginBottom: 6 }}>{hint}</AppText>}
-      <View>
-        <TextInput
-          style={[styles.input, password && { paddingRight: 56 }]}
-          accessibilityLabel={label}
-          placeholderTextColor={colors.textMuted}
-          {...(password ? { secureTextEntry: !visible, autoCapitalize: "none" as const, autoCorrect: false } : {})}
-          {...props}
-        />
-        {password && (
-          <Pressable
-            style={styles.eye}
-            onPress={() => setVisible((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel={visible ? "Ocultar senha" : "Mostrar senha"}
-          >
-            <Icon name={visible ? "eye-off" : "eye"} color="textMuted" />
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-}
 
 function Choice({ icon, title, subtitle, selected, onPress }: { icon: IconName; title: string; subtitle: string; selected?: boolean; onPress: () => void }) {
   return (
@@ -72,29 +44,6 @@ function Progress({ step, total, labels }: { step: number; total: number; labels
     </View>
   );
 }
-
-function CheckRow({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: string }) {
-  return (
-    <Pressable
-      onPress={() => onChange(!checked)}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      accessibilityLabel={children}
-      style={styles.checkRow}
-    >
-      <View style={[styles.box, checked && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-        {checked && <Icon name="check" size={18} color="textOnPrimary" />}
-      </View>
-      <AppText style={{ flex: 1 }}>{children}</AppText>
-    </Pressable>
-  );
-}
-
-const textSizes: { value: AccessibilityPrefs["textSize"]; label: string; size: number }[] = [
-  { value: "normal", label: "Normal", size: 16 },
-  { value: "grande", label: "Grande", size: 20 },
-  { value: "muito_grande", label: "Muito grande", size: 24 },
-];
 
 export default function CadastroScreen() {
   const { register, user } = useAuth();
@@ -195,7 +144,7 @@ export default function CadastroScreen() {
       let input: RegisterInput;
       if (isPessoa) {
         input = {
-          role: "pessoa", name, email, phone, password, accessibility: { textSize, voiceReminders: voice },
+          role: "pessoa", name, email, phone, password, accessibility: { textSize, voiceReminders: voice, voiceVolume: defaultPrefs.voiceVolume },
           ...(found ? { patientCode: code.trim() } : { newPatient: { birthYear: Number(pYear), city: pCity.trim() } }),
         };
       } else {
@@ -352,21 +301,7 @@ export default function CadastroScreen() {
             {isPessoa && step === 2 && (
               <>
                 <AppText bold style={{ marginTop: spacing.lg, marginBottom: 8 }}>Tamanho do texto</AppText>
-                <View style={{ gap: spacing.sm }} accessibilityRole="radiogroup">
-                  {textSizes.map((t) => (
-                    <Pressable
-                      key={t.value}
-                      onPress={() => setTextSize(t.value)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: textSize === t.value }}
-                      accessibilityLabel={t.label}
-                      style={[styles.sizeOpt, textSize === t.value && { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}
-                    >
-                      <AppText bold style={{ fontSize: t.size }}>{t.label}</AppText>
-                      {textSize === t.value && <Icon name="check-circle" color="primary" />}
-                    </Pressable>
-                  ))}
-                </View>
+                <OptionGroup options={textSizeOptions} value={textSize} onChange={setTextSize} renderLabel={(o) => <TextSizeLabel option={o} />} />
                 <View style={{ marginTop: spacing.lg }}>
                   <CheckRow checked={voice} onChange={setVoice}>Ler os lembretes em voz alta.</CheckRow>
                 </View>
@@ -409,21 +344,10 @@ export default function CadastroScreen() {
 
 const styles = StyleSheet.create({
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, marginBottom: 12, alignSelf: "flex-start", minHeight: 48 },
-  eye: { position: "absolute", right: 4, top: 4, width: 46, height: 46, alignItems: "center", justifyContent: "center" },
-  input: {
-    minHeight: 54, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: 16,
-    backgroundColor: colors.surface, fontFamily: fontFamily.regular, fontSize: fontSize.lg, color: colors.text,
-  },
   choice: {
     flexDirection: "row", alignItems: "center", gap: spacing.lg, minHeight: 80, padding: 14,
     backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg,
   },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" },
   barFill: { height: 8, backgroundColor: colors.primary },
-  checkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 56, paddingVertical: 8 },
-  box: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
-  sizeOpt: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 60, paddingHorizontal: 16,
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface,
-  },
 });

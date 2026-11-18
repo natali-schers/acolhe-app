@@ -5,10 +5,12 @@ import { appointments, caregivers, doses, medications, patients, prescriptions, 
 import { createId, mockError, mockResponse } from "@/mocks/helpers";
 import type {
   ApiSession, ApiUser, Appointment, AppUser, Caregiver, CreateNoteInput, Medication, MedicationDose, Patient, Prescription,
-  RegisterInput, Session, TimelineEntry,
+  RegisterInput, Session, TimelineEntry, UpdateAccountInput, UpdateAddressInput,
 } from "@/types";
 import { isSameDay } from "@/utils/date";
 import { getInitials } from "@/utils/text";
+import { addressLine } from "@/utils/address";
+import { withDefaults } from "@/utils/preferences";
 
 const fullPermissions = { receivesAlerts: true, canViewHealth: true, canViewRoutine: true };
 const alertsOnly = { receivesAlerts: true, canViewHealth: false, canViewRoutine: false };
@@ -53,6 +55,9 @@ export function toAppUser(user: ApiUser): AppUser {
 
 const toSession = (session: ApiSession): Session => ({ token: session.token, user: toAppUser(session.user) });
 
+/** Modo mock: quem está logado (a API descobre isso pelo token). */
+let currentMockUserId: string | null = null;
+
 /** Modo mock: tira login e senha do usuário guardado e expõe o e-mail, como a API faz. */
 function toMockUser({ login, password: _password, ...user }: (typeof users)[number]): AppUser {
   void _password;
@@ -64,6 +69,7 @@ export const authService = {
     if (!apiConfig.useMocks) return toSession(await http.post<ApiSession>("/auth/login", { login, password }));
     const found = users.find((u) => u.login === login.trim().toLowerCase());
     if (!found || found.password !== password) return mockError("E-mail/celular ou senha incorretos.");
+    currentMockUserId = found.id;
     return mockResponse({ token: `mock-token-${found.id}`, user: toMockUser(found) });
   },
 
@@ -99,6 +105,7 @@ export const authService = {
       user = { ...base, displayName: base.name.split(" ")[0], role: "cuidador", patientId: patient.id, caregiverId: me.id };
     }
     users.push({ ...user, login: email, password: input.password });
+    currentMockUserId = user.id;
     return mockResponse({ token: `mock-token-${user.id}`, user }, 900);
   },
 
@@ -107,10 +114,31 @@ export const authService = {
     if (!apiConfig.useMocks) return { token, user: toAppUser(await http.get<ApiUser>("/auth/me")) };
     const found = users.find((u) => token === `mock-token-${u.id}`);
     if (!found) return mockError("Sessão expirada.");
+    currentMockUserId = found.id;
     return mockResponse({ token, user: toMockUser(found) }, 100);
   },
 
+  /** Muda e-mail, celular e preferências da própria conta. Devolve o usuário atualizado. */
+  async updateAccount(input: UpdateAccountInput): Promise<AppUser> {
+    if (!apiConfig.useMocks) return toAppUser(await http.patch<ApiUser>("/auth/me", input));
+    const found = users.find((u) => u.id === currentMockUserId);
+    if (!found) return mockError("Sessão expirada.");
+    if (input.email !== undefined) {
+      const email = input.email.trim().toLowerCase();
+      if (users.some((u) => u.id !== found.id && u.login === email)) return mockError("Já existe uma conta com este e-mail.");
+      found.login = email;
+    }
+    if (input.phone !== undefined) {
+      found.phone = input.phone;
+      if (found.role === "pessoa") patients.filter((p) => p.id === found.patientId).forEach((p) => (p.phone = input.phone));
+      if (found.caregiverId) caregivers.filter((c) => c.id === found.caregiverId).forEach((c) => (c.phone = input.phone!));
+    }
+    if (input.accessibility && found.role === "pessoa") found.accessibility = withDefaults({ ...found.accessibility, ...input.accessibility });
+    return mockResponse(toMockUser(found));
+  },
+
   async logout(): Promise<void> {
+    currentMockUserId = null;
     if (!apiConfig.useMocks) await http.post<void>("/auth/logout").catch(() => undefined);
   },
 
@@ -132,6 +160,18 @@ export const patientService = {
     if (!apiConfig.useMocks) return http.get<Patient>(`/patients/${id}`);
     const p = patients.find((x) => x.id === id);
     return p ? mockResponse(p) : mockError("Pessoa não encontrada.");
+  },
+
+  /** Salva o endereço completo da pessoa cuidada (substitui o anterior). */
+  async updateAddress(id: string, input: UpdateAddressInput): Promise<Patient> {
+    if (!apiConfig.useMocks) return http.patch<Patient>(`/patients/${id}/address`, input);
+    const p = patients.find((x) => x.id === id);
+    if (!p) return mockError("Pessoa não encontrada.");
+    const { city, ...details } = input;
+    p.addressDetails = details;
+    p.address = addressLine(details);
+    p.city = city.trim();
+    return mockResponse(p);
   },
 };
 
