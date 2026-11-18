@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { router } from "expo-router";
 import { ApiError, authService, setAuthToken, setUnauthorizedHandler, tokenStorage } from "@/services";
-import type { AppRole, AppUser, RegisterInput, Session } from "@/types";
+import { TextScaleContext } from "@/components/ui/AppText";
+import type { AppRole, AppUser, RegisterInput, Session, UpdateAccountInput } from "@/types";
+import { textScaleFor } from "@/utils/preferences";
 
 interface AuthContextValue {
   user: AppUser | null;
@@ -9,6 +11,8 @@ interface AuthContextValue {
   loginAsDemo: (role: AppRole) => Promise<AppUser>;
   register: (input: RegisterInput) => Promise<AppUser>;
   logout: () => void;
+  /** Muda e-mail, celular ou preferências; a tela já reflete a mudança assim que a API confirma. */
+  updateAccount: (input: UpdateAccountInput) => Promise<AppUser>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -73,12 +77,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authService.logout();
     clearSession();
   }, [clearSession]);
+  const updateAccount = useCallback(async (input: UpdateAccountInput) => {
+    const user = await authService.updateAccount(input);
+    setSession((current) => (current ? { ...current, user } : current));
+    return user;
+  }, []);
 
-  const value = useMemo(() => ({ user: session?.user ?? null, login, loginAsDemo, register, logout }), [session, login, loginAsDemo, register, logout]);
+  const value = useMemo(
+    () => ({ user: session?.user ?? null, login, loginAsDemo, register, logout, updateAccount }),
+    [session, login, loginAsDemo, register, logout, updateAccount],
+  );
+  // Tamanho do texto escolhido pela pessoa cuidada vale para o app inteiro (cuidadores usam o padrão).
+  const textScale = textScaleFor(session?.user.accessibility?.textSize);
 
   // Enquanto confere a sessão salva, não mostra nada (como no carregamento das fontes): evita piscar a tela de login.
   if (restoring) return null;
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <TextScaleContext.Provider value={textScale}>{children}</TextScaleContext.Provider>
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

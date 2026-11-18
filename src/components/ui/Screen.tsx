@@ -47,7 +47,7 @@ export function ScreenHeader({ overline, title, avatar, onAvatarPress, action }:
       </View>
       {action}
       {avatar && (
-        <Pressable onPress={onAvatarPress} accessibilityRole="button" accessibilityLabel="Abrir perfil e sair" hitSlop={8}>
+        <Pressable onPress={onAvatarPress} accessibilityRole="button" accessibilityLabel="Abrir meus dados" hitSlop={8}>
           <Avatar initials={avatar} size={52} />
         </Pressable>
       )}

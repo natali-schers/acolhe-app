@@ -8,14 +8,15 @@ import type {
 import { daysFromToday, minutesAgo, todayAt } from "@/utils/date";
 
 export const users: (AppUser & { login: string; password: string })[] = [
-  { id: "u-maria", name: "Maria Aparecida Souza", displayName: "Dona Maria", initials: "MA", role: "pessoa", patientId: "p-maria", login: "maria@exemplo.com", password: "12345678" },
-  { id: "u-ana", name: "Ana Souza", displayName: "Ana", initials: "AN", role: "cuidador", patientId: "p-maria", caregiverId: "c-ana", login: "ana@exemplo.com", password: "12345678" },
+  { id: "u-maria", name: "Maria Aparecida Souza", displayName: "Dona Maria", initials: "MA", role: "pessoa", patientId: "p-maria", phone: "(11) 94444-0000", accessibility: { textSize: "normal", voiceReminders: true, voiceVolume: "alto" }, login: "maria@exemplo.com", password: "12345678" },
+  { id: "u-ana", name: "Ana Souza", displayName: "Ana", initials: "AN", role: "cuidador", patientId: "p-maria", caregiverId: "c-ana", phone: "(11) 98888-1111", login: "ana@exemplo.com", password: "12345678" },
 ];
 
 export const patients: Patient[] = [
   {
     id: "p-maria", name: "Dona Maria", fullName: "Maria Aparecida Souza", initials: "MA", age: 78,
-    city: "São Paulo, SP", address: "Rua das Flores, 120", status: "estavel",
+    city: "São Paulo, SP", address: "Rua das Flores, 120 - Vila Mariana", status: "estavel",
+    addressDetails: { zipCode: "04117-000", street: "Rua das Flores", number: "120", district: "Vila Mariana" },
     lastActivityAt: minutesAgo(8), batteryLevel: 72, adherence30d: 92, inviteCode: "482910", phone: "(11) 94444-0000",
   },
 ];

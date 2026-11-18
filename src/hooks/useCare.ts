@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   appointmentService, caregiverService, medicationService, patientService, prescriptionService, timelineService,
 } from "@/services";
-import type { CreateNoteInput } from "@/types";
+import type { CreateNoteInput, UpdateAddressInput } from "@/types";
 
 export const queryKeys = {
   patient: (id: string) => ["patient", id] as const,
@@ -63,4 +63,12 @@ export function useAppointments(patientId: string) {
 
 export function usePrescriptions(patientId: string) {
   return useQuery({ queryKey: queryKeys.prescriptions(patientId), queryFn: () => prescriptionService.listByPatient(patientId) });
+}
+
+export function useUpdateAddress(patientId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateAddressInput) => patientService.updateAddress(patientId, input),
+    onSuccess: (patient) => client.setQueryData(queryKeys.patient(patientId), patient),
+  });
 }

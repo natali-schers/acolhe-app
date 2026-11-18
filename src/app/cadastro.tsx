@@ -1,26 +1,19 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
-import { AppText, Button, Card, Eyebrow, Icon, IconBadge, InfoBanner, Screen, type IconName } from "@/components/ui";
+import { AppText, Button, Card, CheckRow, Eyebrow, Field, Icon, IconBadge, InfoBanner, OptionGroup, Screen, type IconName } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { TextSizeLabel } from "@/components/domain";
 import { patientService } from "@/services";
-import { colors, fontFamily, fontSize, radius, spacing } from "@/theme";
+import { colors, radius, spacing } from "@/theme";
 import type { AccessibilityPrefs, Patient, RegisterInput } from "@/types";
+import { formatPhone, isValidPhone } from "@/utils/phone";
+import { defaultPrefs, textSizeOptions } from "@/utils/preferences";
 
 const WEB_PORTAL_URL = process.env.EXPO_PUBLIC_WEB_URL ?? "http://localhost:5173";
 
 type Profile = "pessoa" | "cuidador" | "medico";
 type Support = { name: string; phone: string };
-
-function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
-  return (
-    <View style={{ marginTop: spacing.lg }}>
-      <AppText bold style={{ marginBottom: 6 }}>{label}</AppText>
-      {hint && <AppText size="sm" color="textMuted" style={{ marginBottom: 6 }}>{hint}</AppText>}
-      <TextInput style={styles.input} accessibilityLabel={label} placeholderTextColor={colors.textMuted} {...props} />
-    </View>
-  );
-}
 
 function Choice({ icon, title, subtitle, selected, onPress }: { icon: IconName; title: string; subtitle: string; selected?: boolean; onPress: () => void }) {
   return (
@@ -51,29 +44,6 @@ function Progress({ step, total, labels }: { step: number; total: number; labels
     </View>
   );
 }
-
-function CheckRow({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: string }) {
-  return (
-    <Pressable
-      onPress={() => onChange(!checked)}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked }}
-      accessibilityLabel={children}
-      style={styles.checkRow}
-    >
-      <View style={[styles.box, checked && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
-        {checked && <Icon name="check" size={18} color="textOnPrimary" />}
-      </View>
-      <AppText style={{ flex: 1 }}>{children}</AppText>
-    </Pressable>
-  );
-}
-
-const textSizes: { value: AccessibilityPrefs["textSize"]; label: string; size: number }[] = [
-  { value: "normal", label: "Normal", size: 16 },
-  { value: "grande", label: "Grande", size: 20 },
-  { value: "muito_grande", label: "Muito grande", size: 24 },
-];
 
 export default function CadastroScreen() {
   const { register, user } = useAuth();
@@ -118,7 +88,7 @@ export default function CadastroScreen() {
   };
 
   const validData = () => {
-    if (!name.trim() || !email.includes("@") || phone.replace(/\D/g, "").length < 10 || password.length < 8) {
+    if (!name.trim() || !email.includes("@") || !isValidPhone(phone) || password.length < 8) {
       setError("Preencha nome, e-mail válido, celular com DDD e uma senha de pelo menos 8 caracteres.");
       return false;
     }
@@ -164,18 +134,23 @@ export default function CadastroScreen() {
   const submit = async (skipSupports = false) => {
     setError(null);
     if (isPessoa && !consent) { setError("Para continuar, aceite os termos."); return; }
+    if (!isPessoa && !skipSupports) {
+      // Contato começado pela metade (só nome ou só celular, ou celular incompleto) não pode sumir sem aviso.
+      const incomplete = supports.findIndex((s) => (s.name.trim() || s.phone) && (!s.name.trim() || !isValidPhone(s.phone)));
+      if (incomplete >= 0) { setError(`Contato ${incomplete + 1}: informe o nome e o celular com DDD, ou deixe os dois em branco.`); return; }
+    }
     setBusy(true);
     try {
       let input: RegisterInput;
       if (isPessoa) {
         input = {
-          role: "pessoa", name, email, phone, password, accessibility: { textSize, voiceReminders: voice },
+          role: "pessoa", name, email, phone, password, accessibility: { textSize, voiceReminders: voice, voiceVolume: defaultPrefs.voiceVolume },
           ...(found ? { patientCode: code.trim() } : { newPatient: { birthYear: Number(pYear), city: pCity.trim() } }),
         };
       } else {
         input = {
           role: "cuidador", name, email, phone, password,
-          supportContacts: skipSupports ? [] : supports.filter((s) => s.name.trim() && s.phone.trim()),
+          supportContacts: skipSupports ? [] : supports.filter((s) => s.name.trim() && isValidPhone(s.phone)),
           ...(found ? { patientCode: code.trim() } : { newPatient: { name: pName.trim(), birthYear: Number(pYear), city: pCity.trim() } }),
         };
       }
@@ -220,7 +195,8 @@ export default function CadastroScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    // Android é edge-to-edge (a janela não encolhe com o teclado): "padding" nas duas plataformas.
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <Screen edges={["top", "bottom"]}>
         <Pressable onPress={back} style={styles.back} accessibilityRole="button" accessibilityLabel="Voltar">
           <Icon name="arrow-left" color="primary" />
@@ -264,8 +240,8 @@ export default function CadastroScreen() {
               <>
                 <Field label="Nome completo" value={name} onChangeText={setName} autoComplete="name" />
                 <Field label="E-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-                <Field label="Celular com DDD" value={phone} onChangeText={setPhone} keyboardType="phone-pad" autoComplete="tel" placeholder="(11) 90000-0000" />
-                <Field label="Senha" hint="Pelo menos 8 caracteres." value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" autoCapitalize="none" autoCorrect={false} />
+                <Field label="Celular com DDD" value={phone} onChangeText={(v) => setPhone(formatPhone(v))} keyboardType="phone-pad" autoComplete="tel" placeholder="(11) 90000-0000" />
+                <Field label="Senha" hint="Pelo menos 8 caracteres." value={password} onChangeText={setPassword} password autoComplete="new-password" />
               </>
             )}
 
@@ -313,7 +289,7 @@ export default function CadastroScreen() {
                   <Card key={i} style={{ marginTop: spacing.md }}>
                     <AppText bold>Contato {i + 1}</AppText>
                     <Field label="Nome" value={s.name} onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, name: v } : x)))} />
-                    <Field label="Celular" value={s.phone} keyboardType="phone-pad" onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, phone: v } : x)))} />
+                    <Field label="Celular com DDD" value={s.phone} keyboardType="phone-pad" placeholder="(11) 90000-0000" onChangeText={(v) => setSupports((l) => l.map((x, j) => (j === i ? { ...x, phone: formatPhone(v) } : x)))} />
                   </Card>
                 ))}
                 {supports.length < 3 && (
@@ -325,21 +301,7 @@ export default function CadastroScreen() {
             {isPessoa && step === 2 && (
               <>
                 <AppText bold style={{ marginTop: spacing.lg, marginBottom: 8 }}>Tamanho do texto</AppText>
-                <View style={{ gap: spacing.sm }} accessibilityRole="radiogroup">
-                  {textSizes.map((t) => (
-                    <Pressable
-                      key={t.value}
-                      onPress={() => setTextSize(t.value)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: textSize === t.value }}
-                      accessibilityLabel={t.label}
-                      style={[styles.sizeOpt, textSize === t.value && { borderColor: colors.primary, backgroundColor: colors.primarySoft }]}
-                    >
-                      <AppText bold style={{ fontSize: t.size }}>{t.label}</AppText>
-                      {textSize === t.value && <Icon name="check-circle" color="primary" />}
-                    </Pressable>
-                  ))}
-                </View>
+                <OptionGroup options={textSizeOptions} value={textSize} onChange={setTextSize} renderLabel={(o) => <TextSizeLabel option={o} />} />
                 <View style={{ marginTop: spacing.lg }}>
                   <CheckRow checked={voice} onChange={setVoice}>Ler os lembretes em voz alta.</CheckRow>
                 </View>
@@ -382,20 +344,10 @@ export default function CadastroScreen() {
 
 const styles = StyleSheet.create({
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 10, marginBottom: 12, alignSelf: "flex-start", minHeight: 48 },
-  input: {
-    minHeight: 54, borderWidth: 1.5, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: 16,
-    backgroundColor: colors.surface, fontFamily: fontFamily.regular, fontSize: fontSize.lg, color: colors.text,
-  },
   choice: {
     flexDirection: "row", alignItems: "center", gap: spacing.lg, minHeight: 80, padding: 14,
     backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg,
   },
   bar: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" },
   barFill: { height: 8, backgroundColor: colors.primary },
-  checkRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, minHeight: 56, paddingVertical: 8 },
-  box: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
-  sizeOpt: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 60, paddingHorizontal: 16,
-    borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface,
-  },
 });

@@ -32,6 +32,7 @@ export default function RootLayout() {
               <Stack.Screen name="cuidador" />
               <Stack.Screen name="emergencia" options={{ presentation: "fullScreenModal", gestureEnabled: false }} />
               <Stack.Screen name="nova-anotacao" options={{ presentation: "modal" }} />
+              <Stack.Screen name="meus-dados" />
             </Stack>
           </EmergencyProvider>
         </AuthProvider>

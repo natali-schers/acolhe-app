@@ -1,11 +1,11 @@
 import { StyleSheet, View } from "react-native";
-import * as Speech from "expo-speech";
 import { AppText, Button, Card, Eyebrow, Icon, IconBadge, InfoBanner, Screen, ScreenHeader, StatusTag } from "@/components/ui";
 import { InfoRow, QueryState } from "@/components/domain";
 import { useCurrentUser } from "@/contexts/AuthContext";
 import { useConfirmDose, usePostponeDose, usePrescriptions, useTodayDoses } from "@/hooks/useCare";
 import { colors, spacing } from "@/theme";
 import { formatTime } from "@/utils/date";
+import { speak } from "@/utils/speech";
 
 export default function RemediosScreen() {
   const user = useCurrentUser();
@@ -53,9 +53,9 @@ export default function RemediosScreen() {
                       label="Ouvir em voz alta"
                       icon="volume-2"
                       variant="ghost"
-                      onPress={() => Speech.speak(
+                      onPress={() => speak(
                         `Agora é hora de tomar ${current.medication.name}, ${current.medication.dose}. ${current.medication.instructions}`,
-                        { language: "pt-BR", rate: 0.9 },
+                        user.accessibility?.voiceVolume,
                       )}
                     />
                   </View>

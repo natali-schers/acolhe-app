@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/contexts/AuthContext";
 import { useEmergency } from "@/contexts/EmergencyContext";
 import { apiConfig } from "@/services";
 import { useAppointments, useTodayDoses } from "@/hooks/useCare";
-import { greeting, useLogoutPrompt } from "@/hooks/useLogoutPrompt";
+import { greeting } from "@/hooks/useLogoutPrompt";
 import { colors, spacing } from "@/theme";
 import { formatDayAndTime, formatTime } from "@/utils/date";
 
@@ -14,7 +14,6 @@ import { formatDayAndTime, formatTime } from "@/utils/date";
 export default function PessoaHome() {
   const user = useCurrentUser();
   const { offline, setOffline } = useEmergency();
-  const logoutPrompt = useLogoutPrompt();
   const { data: doses } = useTodayDoses(user.patientId);
   const { data: appointments } = useAppointments(user.patientId);
 
@@ -23,7 +22,7 @@ export default function PessoaHome() {
 
   return (
     <Screen>
-      <ScreenHeader overline={greeting()} title={user.displayName} avatar={user.initials} onAvatarPress={logoutPrompt} />
+      <ScreenHeader overline={greeting()} title={user.displayName} avatar={user.initials} onAvatarPress={() => router.push("/meus-dados")} />
       <InfoBanner icon="shield" title="Tudo tranquilo por aqui" description="Sua rede de cuidado está conectada" />
 
       <AppText size="lg" color="textMuted" center style={{ marginTop: spacing.xl }}>Se precisar, toque no botão abaixo</AppText>

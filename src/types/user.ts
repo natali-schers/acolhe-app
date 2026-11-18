@@ -12,14 +12,19 @@ export interface AppUser {
   patientId: string;
   /** Id do cuidador na rede (apenas para role "cuidador"). */
   caregiverId?: string;
+  email?: string;
   phone?: string;
   /** Preferências de acessibilidade escolhidas no cadastro (pessoa cuidada). */
   accessibility?: AccessibilityPrefs;
 }
 
+export type VoiceVolume = "baixo" | "medio" | "alto";
+
 export interface AccessibilityPrefs {
   textSize: "normal" | "grande" | "muito_grande";
   voiceReminders: boolean;
+  /** Volume da voz que lê os lembretes (relativo ao volume do aparelho). */
+  voiceVolume: VoiceVolume;
 }
 
 /** Cadastro de quem cuida (familiar, vizinho, amigo...). */
@@ -76,4 +81,11 @@ export interface ApiUser {
 export interface ApiSession {
   token: string;
   user: ApiUser;
+}
+
+/** PATCH /auth/me (mesmo formato do acolhe-web): campos ausentes ficam como estão. */
+export interface UpdateAccountInput {
+  email?: string;
+  phone?: string;
+  accessibility?: Partial<AccessibilityPrefs>;
 }
